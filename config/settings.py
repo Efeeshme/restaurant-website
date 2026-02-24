@@ -19,11 +19,15 @@ CSRF_COOKIE_SECURE = not DEBUG
 SECURE_SSL_REDIRECT = not DEBUG
 
 
-raw_hosts = os.environ.get("DJANGO_ALLOWED_HOSTS", "")
-ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(",") if h.strip()]
 
-raw_csrf = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "")
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in raw_csrf.split(",") if o.strip()]
+# settings.py
+
+def _split_env_list(key: str):
+    raw = os.environ.get(key, "")
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+ALLOWED_HOSTS = _split_env_list("DJANGO_ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = _split_env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 # --------------------------------------------------
 # APPLICATIONS
