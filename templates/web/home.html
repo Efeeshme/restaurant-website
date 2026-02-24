@@ -1,0 +1,141 @@
+{% extends "web/base.html" %}
+{% load dict_extras %}
+
+{% block title %}{{ site.name }} – Menyu{% endblock %}
+
+{% block content %}
+
+<section id="home" class="hero">
+  <div class="wrap hero__inner">
+    <h1 class="hero__title">{{ site.name }}</h1>
+    <p class="hero__sub muted">
+      {{ site.address }} • {{ site.working_hours }}
+    </p>
+
+    <div class="hero__cta">
+      <a class="btn btn--primary" href="#menu"><span>Menyuya baxın</span></a>
+      {% if site.map_url %}
+        <a class="btn" href="{{ site.map_url }}" target="_blank" rel="noopener noreferrer">
+          <span>Xəritədə göstər</span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section id="menu" class="section">
+  <div class="wrap">
+    <h2 class="section__title">Bizim Menyu</h2>
+
+    <nav class="cats" role="tablist" aria-label="Yemək kateqoriyaları">
+      {% for c in categories %}
+        <button class="cat-btn"
+                type="button"
+                role="tab"
+                aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                aria-controls="panel-{{ c.id }}"
+                data-cat="{{ c.id }}">
+          <span>{{ c.name }}</span>
+        </button>
+      {% endfor %}
+    </nav>
+
+    {% for c in categories %}
+      {% with items=grouped|dict_get:c.id %}
+        <section class="menu__panel"
+                 id="panel-{{ c.id }}"
+                 data-panel="{{ c.id }}"
+                 role="tabpanel"
+                 {% if not forloop.first %}hidden{% endif %}>
+          {% if items %}
+            <div class="grid" role="list">
+              {% for it in items %}
+                <article class="card" role="listitem">
+                  <button class="card__btn"
+                          type="button"
+                          aria-label="{{ it.name }} haqqında ətraflı məlumat"
+                          data-name="{{ it.name|escape }}"
+                          data-price="{{ it.price }}"
+                          data-desc="{{ it.description|default:'Təsvir mövcud deyil'|escape }}"
+                          data-img="{% if it.image %}{{ it.image.url }}{% endif %}">
+                    <div class="card__media" aria-hidden="true">
+                      {% if it.image %}
+                        <img src="{{ it.image.url }}" alt="{{ it.name }}" loading="lazy" width="400" height="260">
+                      {% else %}
+                        <div class="ph"></div>
+                      {% endif %}
+                    </div>
+
+                    <div class="card__body">
+                      <div class="card__top">
+                        <h3 class="card__title">{{ it.name }}</h3>
+                        <span class="price" aria-label="Qiymət">{{ it.price }} ₼</span>
+                      </div>
+
+                      {% if it.description %}
+                        <p class="muted clamp2">{{ it.description }}</p>
+                      {% else %}
+                        <p class="muted clamp2">Təsvir mövcud deyil</p>
+                      {% endif %}
+                    </div>
+                  </button>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="muted center">Bu kateqoriyada hələ məhsul yoxdur.</p>
+          {% endif %}
+        </section>
+      {% endwith %}
+    {% endfor %}
+  </div>
+</section>
+
+<section id="about" class="section section--soft">
+  <div class="wrap">
+    <h2 class="section__title">Haqqımızda</h2>
+    <p class="about">
+      {{ site.name }} dadlı və keyfiyyətli yemək təcrübəsi təqdim edir.
+      Menyumuz gündəlik təzə hazırlanır. Menyuya baxın və WhatsApp ilə sifariş verin.
+    </p>
+  </div>
+</section>
+
+<section id="contact" class="section">
+  <div class="wrap center">
+    <h2 class="section__title">Bizimlə Əlaqə</h2>
+    <p class="muted">{{ site.address }} • {{ site.working_hours }}</p>
+
+    <div class="contact__row">
+      {% if site.map_url %}
+        <a class="btn" href="{{ site.map_url }}" target="_blank" rel="noopener noreferrer"><span>Xəritə</span></a>
+      {% endif %}
+      {% if site.whatsapp %}
+        <a class="btn btn--primary" href="https://wa.me/{{ site.whatsapp }}" target="_blank" rel="noopener noreferrer">
+          <span>WhatsApp</span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="modal" id="modal" aria-hidden="true" aria-modal="true">
+  <div class="modal__backdrop" data-close aria-label="Modalı bağla"></div>
+  <div class="modal__card" role="dialog" aria-labelledby="m-title" aria-describedby="m-desc">
+    <button class="modal__close" type="button" data-close aria-label="Modalı bağla">✕</button>
+
+    <div class="modal__media" aria-hidden="true">
+      <img id="m-img" alt="" />
+    </div>
+
+    <div class="modal__body">
+      <div class="modal__top">
+        <h3 id="m-title"></h3>
+        <span id="m-price" class="price" aria-label="Qiymət"></span>
+      </div>
+      <p id="m-desc" class="muted"></p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
