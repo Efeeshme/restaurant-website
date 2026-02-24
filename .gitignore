@@ -13,3 +13,13 @@ staticfiles/
 # Python
 __pycache__/
 *.py[cod]
+data.json
+
+
+# Local-only
+config/settings_local.py
+data.json
+
+# Python cache
+__pycache__/
+*.pyc
