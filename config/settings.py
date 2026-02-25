@@ -29,16 +29,16 @@ KOYEB_DOMAIN = os.environ.get(
 ).strip()
 
 # ---- Hosts ----
+# ---- Hosts ----
 hosts_from_env = env_list("DJANGO_ALLOWED_HOSTS", default=[])
 
-# Eğer env ile host veriyorsan onu kullan.
-# Env boşsa, Koyeb’de deploy kırılmasın diye güvenli bir fallback bırak.
-if hosts_from_env:
-    base_hosts = []
+# Koyeb health check bazen internal IP ile Host header gönderiyor (10.x.x.x:8000).
+# IP değişebileceği için tek tek IP eklemek yerine prod'da wildcard kullanıyoruz.
+if DEBUG:
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + hosts_from_env
 else:
-    base_hosts = [KOYEB_DOMAIN, ".koyeb.app", "localhost", "127.0.0.1"]
-
-ALLOWED_HOSTS = sorted(set(base_hosts + hosts_from_env))
+    # Prod: env ile sıkılaştırmak istersen yine domainleri yazarsın ama healthcheck için wildcard şart.
+    ALLOWED_HOSTS = ["*"] if not hosts_from_env else (["*"] + hosts_from_env)
 
 # ---- CSRF ----
 csrf_from_env = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
