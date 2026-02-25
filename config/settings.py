@@ -196,3 +196,26 @@ LOGGING = {
         "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
 }
+
+
+
+
+
+
+
+
+
+
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+import os
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+
+if SENTRY_DSN and not DEBUG:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        environment="production",
+        send_default_pii=False,
+    )
