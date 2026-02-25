@@ -23,27 +23,22 @@ def env_list(name: str, default=None):
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = env_bool("DJANGO_DEBUG", False)
 
-# Public domain (no trailing slash)
 KOYEB_DOMAIN = os.environ.get(
     "KOYEB_DOMAIN",
     "dusty-anya-eferestaurantprojects-1125ce55.koyeb.app",
 ).strip()
 
-# ---- Hosts (fixes Koyeb health check 400) ----
+# ---- Hosts ----
 hosts_from_env = env_list("DJANGO_ALLOWED_HOSTS", default=[])
 
-if DEBUG:
-    base_hosts = ["localhost", "127.0.0.1"]
+# Eğer env ile host veriyorsan onu kullan.
+# Env boşsa, Koyeb’de deploy kırılmasın diye güvenli bir fallback bırak.
+if hosts_from_env:
+    base_hosts = []
 else:
-    # Fail-safe for platforms where healthcheck hits with internal host/IP.
-    # You can tighten later by setting DJANGO_ALLOWED_HOSTS explicitly.
-    base_hosts = ["*"] if not hosts_from_env else []
+    base_hosts = [KOYEB_DOMAIN, ".koyeb.app", "localhost", "127.0.0.1"]
 
-ALLOWED_HOSTS = sorted(set(base_hosts + hosts_from_env + [
-    KOYEB_DOMAIN,
-    ".koyeb.app",
-    "169.254.254.254",  # Koyeb internal health check source seen in logs
-]))
+ALLOWED_HOSTS = sorted(set(base_hosts + hosts_from_env))
 
 # ---- CSRF ----
 csrf_from_env = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
@@ -57,12 +52,11 @@ CSRF_TRUSTED_ORIGINS = csrf_from_env or default_csrf
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 
-# IMPORTANT: default False to avoid breaking platform health checks.
+# Koyeb SSL termination var; healthcheck kırılmasın diye default False
 SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
 SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", True)
 CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", True)
 
-# Keep HSTS off until stable
 SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("DJANGO_HSTS_INCLUDE_SUBDOMAINS", False)
 SECURE_HSTS_PRELOAD = env_bool("DJANGO_HSTS_PRELOAD", False)
@@ -70,7 +64,6 @@ SECURE_HSTS_PRELOAD = env_bool("DJANGO_HSTS_PRELOAD", False)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
-
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -147,7 +140,6 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Optional local static dir (avoid crash if missing)
 _static_dir = BASE_DIR / "static"
 STATICFILES_DIRS = [_static_dir] if _static_dir.exists() else []
 
@@ -192,3 +184,15 @@ else:
     }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---- Logging (Koyeb logs’da traceback görmek için) ----
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+    },
+}
