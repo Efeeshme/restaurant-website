@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,28 +23,42 @@ def env_list(name: str, default=None):
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = env_bool("DJANGO_DEBUG", False)
 
-# Hard-coded Koyeb domain (NO trailing slash)
-KOYEB_DOMAIN = "dusty-anya-eferestaurantprojects-1125ce55.koyeb.app"
+# Public domain (no trailing slash)
+KOYEB_DOMAIN = os.environ.get(
+    "KOYEB_DOMAIN",
+    "dusty-anya-eferestaurantprojects-1125ce55.koyeb.app",
+).strip()
 
-# Merge env hosts + required hosts
+# ---- Hosts (fixes Koyeb health check 400) ----
 hosts_from_env = env_list("DJANGO_ALLOWED_HOSTS", default=[])
-ALLOWED_HOSTS = sorted(set(hosts_from_env + [
-    "localhost",
-    "127.0.0.1",
+
+if DEBUG:
+    base_hosts = ["localhost", "127.0.0.1"]
+else:
+    # Fail-safe for platforms where healthcheck hits with internal host/IP.
+    # You can tighten later by setting DJANGO_ALLOWED_HOSTS explicitly.
+    base_hosts = ["*"] if not hosts_from_env else []
+
+ALLOWED_HOSTS = sorted(set(base_hosts + hosts_from_env + [
     KOYEB_DOMAIN,
     ".koyeb.app",
+    "169.254.254.254",  # Koyeb internal health check source seen in logs
 ]))
 
-CSRF_TRUSTED_ORIGINS = env_list(
-    "DJANGO_CSRF_TRUSTED_ORIGINS",
-    default=[
-        f"https://{KOYEB_DOMAIN}",
-        "https://*.koyeb.app",
-    ],
-)
+# ---- CSRF ----
+csrf_from_env = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+default_csrf = [
+    f"https://{KOYEB_DOMAIN}",
+    "https://*.koyeb.app",
+]
+CSRF_TRUSTED_ORIGINS = csrf_from_env or default_csrf
 
+# ---- Proxy/HTTPS ----
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
+USE_X_FORWARDED_HOST = True
+
+# IMPORTANT: default False to avoid breaking platform health checks.
+SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
 SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", True)
 CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", True)
 
@@ -99,12 +112,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
-# Database
+# ---- Database ----
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     DATABASES = {
-        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True,
+        )
     }
 else:
     DATABASES = {
@@ -114,7 +130,6 @@ else:
         }
     }
 
-
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -122,37 +137,37 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-
+# ---- Static/Media ----
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Optional local static dir (avoid crash if missing)
+_static_dir = BASE_DIR / "static"
+STATICFILES_DIRS = [_static_dir] if _static_dir.exists() else []
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Supabase S3 for uploads (optional; if env missing, fall back to local)
+# ---- Optional S3 (Supabase) ----
 SUPABASE_S3_ACCESS_KEY_ID = os.environ.get("SUPABASE_S3_ACCESS_KEY_ID")
 SUPABASE_S3_SECRET_ACCESS_KEY = os.environ.get("SUPABASE_S3_SECRET_ACCESS_KEY")
 SUPABASE_S3_BUCKET = os.environ.get("SUPABASE_S3_BUCKET")
 SUPABASE_S3_REGION = os.environ.get("SUPABASE_S3_REGION")
 SUPABASE_S3_ENDPOINT_URL = os.environ.get("SUPABASE_S3_ENDPOINT_URL")
 
-USE_SUPABASE_S3 = all(
-    [
-        SUPABASE_S3_ACCESS_KEY_ID,
-        SUPABASE_S3_SECRET_ACCESS_KEY,
-        SUPABASE_S3_BUCKET,
-        SUPABASE_S3_REGION,
-        SUPABASE_S3_ENDPOINT_URL,
-    ]
-)
+USE_SUPABASE_S3 = all([
+    SUPABASE_S3_ACCESS_KEY_ID,
+    SUPABASE_S3_SECRET_ACCESS_KEY,
+    SUPABASE_S3_BUCKET,
+    SUPABASE_S3_REGION,
+    SUPABASE_S3_ENDPOINT_URL,
+])
 
 if USE_SUPABASE_S3:
     STORAGES = {
@@ -175,6 +190,5 @@ else:
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     }
-
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
